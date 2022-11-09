@@ -11,60 +11,68 @@
    (make-n row col block (make-n)))
   ([row col block n]
    (println "generating random number from row: " row "\ncol: " col "\nblock: " block)
-   (let [;row-exclusions (if (= (count row) row-length) [] row)
+   (let [
          options (vec (difference (set (range 1 10))
-                                  (set row);row-exclusions)
+                                  (set row)
                                   (set col)
                                   (set block)))
-                                        ;         n (rand-nth options)]
-         n (if (empty? options) (rand-nth (range 1 10)) (rand-nth options))];;TODO this shouldn't
+         n (if (empty? options) :x (rand-nth options))]
      (println "options are " options)
      (println "finding n...")
      (println "candidate is " n)
      n)))
 
-
 (defn next-row-num [row row-num]
-  (println "finding next row num for row \n" row "\n with row number of " row-num) 
   (if (= (count row) row-length)
     (inc row-num)
     row-num))
 
-(defn next-col-num [row col-num]
-  (if (= (count row) row-length)
+(defn next-col-num [col-num]
+  (if (= col-num row-length)
     1
     (inc col-num)))
 
-(defn next-block-num[col-num block-num]
+(defn next-block-num[row-num col-num block-num]
   (if (= (mod col-num 3) 0)
-    (inc block-num)
+    (if (= col-num 9)
+      (cond (< row-num 3) 1
+            (< row-num 6) 4
+            (< row-num 9) 7)
+      (inc block-num))
     block-num))
 
-(defn get-row [rows n]
-  (get rows (- n 1)))
+(defn get-element [elements n]
+  (println "getting index ["n"] from elements["elements"]")
+  (get elements (- n 1)))
 
-(defn get-col [cols n]
-  (get cols (- n 1)))
-
-(defn get-block [blocks n]
-  (get blocks (- n 1)))
-
-(defn update-rows [rows n row]
-  (println "rows are " rows)
-  (println "adding row " row)
-  (println "for index " n)
+(defn update-element [elements n element]
   (let [index (- n 1)]
-    (assoc rows index row)))
+    (assoc elements index element)))
 
-(defn update-cols [cols n col]
-  (let [index (- n 1)]
-    (println "associng to cols " cols " col " col " for index " n)
-    (assoc cols index col)))
+(defn get-next-row [rows row-num]
+  (let [current-row (get-element rows row-num)
+        next-row-num (next-row-num current-row row-num)]
+    (println "current-row " current-row)
+    (println "next row num "  next-row-num)
+    {:row-num next-row-num :row (get-element rows next-row-num)}))
 
-(defn update-blocks [blocks n block]
-  (let [index (- n 1)]
-    (println "associng to blocks " blocks " block " block " for index " n)
-    (assoc blocks index block)))
+(defn get-next-col [cols col-num]
+  (let [current-col (get-element cols col-num)
+        next-col-num (next-col-num col-num)
+        next-col (get-element cols next-col-num)]
+    (println "current-col " current-col)
+    (println "next col num " next-col-num)
+    (println "next col  " next-col)
+    {:col-num next-col-num :col (get-element cols next-col-num)}))
+
+(defn get-next-block [blocks row-num col-num block-num]
+  (let [current-block (get-element blocks block-num)
+        next-block-num (next-block-num row-num col-num block-num)
+        next-block (get-element blocks next-block-num)]
+    (println "current-block " current-block)
+    (println "next block num " next-block-num)
+    (println "next block " next-block)
+    {:block-num next-block-num :block (get-element blocks next-block-num)}))
 
 (defn create-board-3
   ([]
@@ -76,43 +84,24 @@
    (println "row num is " row-num)
    (println "col num is " col-num)
    (println "block num is " block-num)
-   (if (= (count (flatten (:rows board-elements))) (* row-length col-length))
-     board-elements
-     (let [current-row (get-row (:rows board-elements) row-num)
-           current-col (get-col (:cols board-elements) col-num)
-           current-block (get-block (:blocks board-elements) block-num)
-           next-row-num (next-row-num current-row row-num)
-           next-col-num (next-col-num current-row col-num)
-           next-block-num (next-block-num col-num block-num)
-           next-row (get-row (:rows board-elements) next-row-num)
-           next-col (get-col (:cols board-elements) next-col-num)
-           next-block (get-block (:blocks board-elements) next-block-num)
-           n (make-n next-row next-col next-block)
-           next-row-candidate (into [] (conj next-row n));
-           updated-rows (update-rows (:rows board-elements) next-row-num next-row-candidate)
-           next-col-candidate (into [] (conj next-col n))
-           updated-cols (update-cols (:cols board-elements) next-col-num next-col-candidate)           next-block-candidate (into [] (conj next-block n))
-           updated-blocks (update-blocks (:blocks board-elements) next-block-num next-block-candidate)
+   (if-not (= (count (flatten (:rows board-elements))) (* row-length col-length))
+     (let [next-row (get-next-row (:rows board-elements) row-num)
+           next-col (get-next-col (:cols board-elements) col-num)
+           next-block (get-next-block (:blocks board-elements) row-num col-num block-num)
+           n (make-n (:row next-row) (:col next-col) (:block next-block))
+           next-row-candidate (into [] (conj (:row next-row) n));;TODO move these into the 'get-next' functions
+           updated-rows (update-element (:rows board-elements) (:row-num next-row) next-row-candidate)
+           next-col-candidate (into [] (conj (:col next-col) n))
+           updated-cols (update-element (:cols board-elements) (:col-num next-col) next-col-candidate)           next-block-candidate (into [] (conj (:block next-block) n))
+           updated-blocks (update-element (:blocks board-elements) (:block-num next-block) next-block-candidate)
            next-board-elements (assoc board-elements :rows updated-rows :cols updated-cols :blocks updated-blocks)
            ]
-       (println "current-row " current-row)
-       (println "current-col " current-col)
-       (println "current-block " current-block)
-       (println "next row num "  next-row-num)
-       (println "next col num " next-col-num)
-       (println "next block num " next-block-num)
+              
        (println "next row " next-row-candidate)
        (println "updated rows " updated-rows)
        (println "next col " next-col-candidate)
        (println "next board elements " next-board-elements)
-       
-       (create-board-3 next-board-elements next-row-num next-col-num next-block-num)
-       ))))
 
-(comment(defn board->str
-          ([board]
-           (board->str board 1))
-          ([board row-number]
-           (if (<= row-number 9);;todo hardcode
-             (do (println (get-row ));;(derive-row board row-number))
-                 (board->str board (+ row-number 1)))))))
+       (create-board-3 next-board-elements (:row-num next-row) (:col-num next-col) (:block-num next-block)))
+     
+     board-elements)))
